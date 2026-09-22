@@ -1,0 +1,66 @@
+name: ci
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # ffmpeg 7.0.2-static. The site's "release" URL moves to newer builds; a
+      # mismatch fails here so the new binary is checked before the hash moves.
+      FFMPEG_SHA256: abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
+        ffmpeg: [distro, amr]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: ffmpeg (distro build, no AMR)
+        if: matrix.ffmpeg == 'distro'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg libopus0
+      - name: static ffmpeg tarball cache
+        if: matrix.ffmpeg == 'amr'
+        uses: actions/cache@v4
+        with:
+          path: ffmpeg-static.tar.xz
+          key: ffmpeg-static-${{ env.FFMPEG_SHA256 }}
+      - name: ffmpeg (static GPL build with AMR, pinned by sha256)
+        if: matrix.ffmpeg == 'amr'
+        run: |
+          sudo apt-get update && sudo apt-get install -y libopus0
+          if [ ! -f ffmpeg-static.tar.xz ]; then
+            curl -fsSL --retry 3 --retry-all-errors -o ffmpeg-static.tar.xz \
+              https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+          fi
+          echo "$FFMPEG_SHA256  ffmpeg-static.tar.xz" | sha256sum -c
+          tar xf ffmpeg-static.tar.xz
+          sudo install ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/ffmpeg
+          for c in libopencore_amrnb libvo_amrwbenc; do ffmpeg -hide_banner -encoders | grep -q "$c"; done
+          for c in libopencore_amrnb libopencore_amrwb libopus; do ffmpeg -hide_banner -decoders | grep -q "$c"; done
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -e ".[test]"
+      - run: phonesim info
+      - run: pytest -q
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build && python -m build
+      - run: unzip -l dist/*.whl | grep -q "licenses/LICENSE"
+      - run: tar tzf dist/*.tar.gz | grep -q "SECURITY.md"
+      - name: test suite from the sdist (distro ffmpeg, AMR tests skip)
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg libopus0
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "$(ls dist/*.tar.gz)[test]"
+          mkdir sdist && tar xzf dist/*.tar.gz -C sdist
+          cd sdist/phonesim-* && pytest -q

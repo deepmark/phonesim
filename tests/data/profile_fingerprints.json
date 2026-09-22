@@ -1,0 +1,879 @@
+{
+  "pstn_g726@1": [
+    [
+      "ResampleStage",
+      "Resample->8000",
+      {
+        "from_sr": 24000,
+        "to_sr": 8000,
+        "zeros": 32
+      }
+    ],
+    [
+      "AmbientNoiseStage",
+      "Ambient",
+      {
+        "knee_hz": "200.0",
+        "low_hz": "60.0",
+        "snr_range": [
+          "35.0",
+          "50.0"
+        ]
+      }
+    ],
+    [
+      "SpeechLevelStage",
+      "SpeechLevel",
+      {
+        "max_gain_db": "30.0",
+        "target_range": [
+          "-32.0",
+          "-22.0"
+        ]
+      }
+    ],
+    [
+      "LimiterStage",
+      "Limiter",
+      {
+        "ceiling": "0.8912509381337456",
+        "knee": "0.5011872336272722"
+      }
+    ],
+    [
+      "ChannelEdgeStage",
+      "ChannelEdge",
+      {
+        "low_range": [
+          "250.0",
+          "320.0"
+        ],
+        "pass_range": [
+          "3300.0",
+          "3450.0"
+        ],
+        "stop_db": "45.0",
+        "stop_hz": "4000.0"
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:g726",
+      {
+        "backend": "ffmpeg",
+        "bitrate": "32k",
+        "burst_probability": "0.3",
+        "codec": "g726",
+        "erasure_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "ClockDriftStage",
+      "ClockDrift",
+      {
+        "ppm_range": [
+          "-50.0",
+          "50.0"
+        ]
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->24000",
+      {
+        "from_sr": 8000,
+        "to_sr": 24000,
+        "zeros": 32
+      }
+    ]
+  ],
+  "pstn_narrowband@1": [
+    [
+      "ResampleStage",
+      "Resample->8000",
+      {
+        "from_sr": 24000,
+        "to_sr": 8000,
+        "zeros": 32
+      }
+    ],
+    [
+      "AmbientNoiseStage",
+      "Ambient",
+      {
+        "knee_hz": "200.0",
+        "low_hz": "60.0",
+        "snr_range": [
+          "35.0",
+          "50.0"
+        ]
+      }
+    ],
+    [
+      "SpeechLevelStage",
+      "SpeechLevel",
+      {
+        "max_gain_db": "30.0",
+        "target_range": [
+          "-32.0",
+          "-22.0"
+        ]
+      }
+    ],
+    [
+      "LimiterStage",
+      "Limiter",
+      {
+        "ceiling": "0.8912509381337456",
+        "knee": "0.5011872336272722"
+      }
+    ],
+    [
+      "ChannelEdgeStage",
+      "ChannelEdge",
+      {
+        "low_range": [
+          "250.0",
+          "320.0"
+        ],
+        "pass_range": [
+          "3300.0",
+          "3450.0"
+        ],
+        "stop_db": "45.0",
+        "stop_hz": "4000.0"
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:g711_ulaw",
+      {
+        "backend": "native",
+        "bitrate": null,
+        "burst_probability": "0.3",
+        "codec": "g711_ulaw",
+        "erasure_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "ClockDriftStage",
+      "ClockDrift",
+      {
+        "ppm_range": [
+          "-50.0",
+          "50.0"
+        ]
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->24000",
+      {
+        "from_sr": 8000,
+        "to_sr": 24000,
+        "zeros": 32
+      }
+    ]
+  ],
+  "stress_multi_transcode@1": [
+    [
+      "ResampleStage",
+      "Resample->16000",
+      {
+        "from_sr": 24000,
+        "to_sr": 16000,
+        "zeros": 32
+      }
+    ],
+    [
+      "BandlimitStage",
+      "Bandlimit",
+      {
+        "high_range": [
+          "6500.0",
+          "7200.0"
+        ],
+        "jitter_hz": "0.0",
+        "low_range": [
+          "50.0",
+          "120.0"
+        ],
+        "numtaps": 257
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:opus",
+      {
+        "backend": "ffmpeg",
+        "bitrate": "16k",
+        "burst_probability": "0.3",
+        "codec": "opus",
+        "erasure_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "PacketLossStage",
+      "PacketLoss",
+      {
+        "burst_probability": "0.45",
+        "conceal": true,
+        "frame_ms": 20,
+        "loss_range": [
+          "0.02",
+          "0.1"
+        ]
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->8000",
+      {
+        "from_sr": 16000,
+        "to_sr": 8000,
+        "zeros": 32
+      }
+    ],
+    [
+      "BandlimitStage",
+      "Bandlimit",
+      {
+        "high_range": [
+          "3200.0",
+          "3400.0"
+        ],
+        "jitter_hz": "0.0",
+        "low_range": [
+          "300.0",
+          "350.0"
+        ],
+        "numtaps": 257
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:amr_nb",
+      {
+        "backend": "ffmpeg",
+        "bitrate": "12.2k",
+        "burst_probability": "0.3",
+        "codec": "amr_nb",
+        "erasure_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:g711_alaw",
+      {
+        "backend": "native",
+        "bitrate": null,
+        "burst_probability": "0.3",
+        "codec": "g711_alaw",
+        "erasure_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "PacketLossStage",
+      "PacketLoss",
+      {
+        "burst_probability": "0.5",
+        "conceal": true,
+        "frame_ms": 20,
+        "loss_range": [
+          "0.01",
+          "0.06"
+        ]
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->16000",
+      {
+        "from_sr": 8000,
+        "to_sr": 16000,
+        "zeros": 32
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:amr_wb",
+      {
+        "backend": "ffmpeg",
+        "bitrate": "12.65k",
+        "burst_probability": "0.3",
+        "codec": "amr_wb",
+        "erasure_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "JitterBufferStage",
+      "JitterBuffer",
+      {
+        "frame_ms": 20,
+        "late_range": [
+          "0.01",
+          "0.04"
+        ],
+        "underrun_range": [
+          "0.02",
+          "0.02"
+        ]
+      }
+    ],
+    [
+      "AGCStage",
+      "AGC",
+      {
+        "attack_ms": "10.0",
+        "max_gain_db": 35,
+        "mode": "static",
+        "release_ms": "150.0",
+        "target_range": [
+          "-24.0",
+          "-14.0"
+        ]
+      }
+    ],
+    [
+      "NoiseStage",
+      "Noise",
+      {
+        "color": "pink",
+        "snr_range": [
+          "15.0",
+          "32.0"
+        ]
+      }
+    ],
+    [
+      "ClipStage",
+      "Clip",
+      {
+        "drive_range": [
+          "0.0",
+          "5.0"
+        ],
+        "mode": "soft",
+        "threshold_range": [
+          "0.9",
+          "1.0"
+        ]
+      }
+    ],
+    [
+      "SpeedDriftStage",
+      "SpeedDrift",
+      {
+        "drift_range": [
+          "0.004",
+          "0.004"
+        ]
+      }
+    ],
+    [
+      "TimeOffsetStage",
+      "TimeOffset",
+      {
+        "offset_range": [
+          "40.0",
+          "40.0"
+        ]
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->24000",
+      {
+        "from_sr": 16000,
+        "to_sr": 24000,
+        "zeros": 32
+      }
+    ]
+  ],
+  "voip_g722_wideband@1": [
+    [
+      "ResampleStage",
+      "Resample->16000",
+      {
+        "from_sr": 24000,
+        "to_sr": 16000,
+        "zeros": 32
+      }
+    ],
+    [
+      "AmbientNoiseStage",
+      "Ambient",
+      {
+        "knee_hz": "200.0",
+        "low_hz": "60.0",
+        "snr_range": [
+          "40.0",
+          "55.0"
+        ]
+      }
+    ],
+    [
+      "SpeechLevelStage",
+      "SpeechLevel",
+      {
+        "max_gain_db": "30.0",
+        "target_range": [
+          "-32.0",
+          "-22.0"
+        ]
+      }
+    ],
+    [
+      "LimiterStage",
+      "Limiter",
+      {
+        "ceiling": "0.8912509381337456",
+        "knee": "0.5011872336272722"
+      }
+    ],
+    [
+      "ChannelEdgeStage",
+      "ChannelEdge",
+      {
+        "low_range": [
+          "50.0",
+          "80.0"
+        ],
+        "pass_range": [
+          "6800.0",
+          "7100.0"
+        ],
+        "stop_db": "45.0",
+        "stop_hz": "8000.0"
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:g722",
+      {
+        "backend": "ffmpeg",
+        "bitrate": null,
+        "burst_probability": "0.3",
+        "codec": "g722",
+        "erasure_range": [
+          "0.0",
+          "0.01"
+        ]
+      }
+    ],
+    [
+      "PlayoutBufferStage",
+      "PlayoutBuffer",
+      {
+        "adapt_range": [
+          "0.0",
+          "0.003"
+        ],
+        "burst_probability": "0.3",
+        "frame_ms": 20,
+        "late_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "ClockDriftStage",
+      "ClockDrift",
+      {
+        "ppm_range": [
+          "-50.0",
+          "50.0"
+        ]
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->24000",
+      {
+        "from_sr": 16000,
+        "to_sr": 24000,
+        "zeros": 32
+      }
+    ]
+  ],
+  "voip_opus_wideband@1": [
+    [
+      "ResampleStage",
+      "Resample->16000",
+      {
+        "from_sr": 24000,
+        "to_sr": 16000,
+        "zeros": 32
+      }
+    ],
+    [
+      "AmbientNoiseStage",
+      "Ambient",
+      {
+        "knee_hz": "200.0",
+        "low_hz": "60.0",
+        "snr_range": [
+          "40.0",
+          "55.0"
+        ]
+      }
+    ],
+    [
+      "SpeechLevelStage",
+      "SpeechLevel",
+      {
+        "max_gain_db": "30.0",
+        "target_range": [
+          "-32.0",
+          "-22.0"
+        ]
+      }
+    ],
+    [
+      "LimiterStage",
+      "Limiter",
+      {
+        "ceiling": "0.8912509381337456",
+        "knee": "0.5011872336272722"
+      }
+    ],
+    [
+      "ChannelEdgeStage",
+      "ChannelEdge",
+      {
+        "low_range": [
+          "50.0",
+          "80.0"
+        ],
+        "pass_range": [
+          "6720.0",
+          "7200.0"
+        ],
+        "stop_db": "45.0",
+        "stop_hz": "8000.0"
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:opus",
+      {
+        "backend": "libopus",
+        "bitrate": "24k",
+        "burst_probability": "0.3",
+        "codec": "opus",
+        "erasure_range": [
+          "0.0",
+          "0.05"
+        ],
+        "fec": true
+      }
+    ],
+    [
+      "PlayoutBufferStage",
+      "PlayoutBuffer",
+      {
+        "adapt_range": [
+          "0.0",
+          "0.003"
+        ],
+        "burst_probability": "0.3",
+        "frame_ms": 20,
+        "late_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "ClockDriftStage",
+      "ClockDrift",
+      {
+        "ppm_range": [
+          "-50.0",
+          "50.0"
+        ]
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->24000",
+      {
+        "from_sr": 16000,
+        "to_sr": 24000,
+        "zeros": 32
+      }
+    ]
+  ],
+  "voip_to_cellular_narrowband@1": [
+    [
+      "ResampleStage",
+      "Resample->16000",
+      {
+        "from_sr": 24000,
+        "to_sr": 16000,
+        "zeros": 32
+      }
+    ],
+    [
+      "AmbientNoiseStage",
+      "Ambient",
+      {
+        "knee_hz": "200.0",
+        "low_hz": "60.0",
+        "snr_range": [
+          "40.0",
+          "55.0"
+        ]
+      }
+    ],
+    [
+      "SpeechLevelStage",
+      "SpeechLevel",
+      {
+        "max_gain_db": "30.0",
+        "target_range": [
+          "-32.0",
+          "-22.0"
+        ]
+      }
+    ],
+    [
+      "LimiterStage",
+      "Limiter",
+      {
+        "ceiling": "0.8912509381337456",
+        "knee": "0.5011872336272722"
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:opus",
+      {
+        "backend": "libopus",
+        "bitrate": "24k",
+        "burst_probability": "0.3",
+        "codec": "opus",
+        "erasure_range": [
+          "0.0",
+          "0.01"
+        ],
+        "fec": true
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->8000",
+      {
+        "from_sr": 16000,
+        "to_sr": 8000,
+        "zeros": 32
+      }
+    ],
+    [
+      "ChannelEdgeStage",
+      "ChannelEdge",
+      {
+        "low_range": [
+          "80.0",
+          "120.0"
+        ],
+        "pass_range": [
+          "3300.0",
+          "3450.0"
+        ],
+        "stop_db": "45.0",
+        "stop_hz": "4000.0"
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:amr_nb",
+      {
+        "backend": "ffmpeg",
+        "bitrate": "12.2k",
+        "burst_probability": "0.3",
+        "codec": "amr_nb",
+        "erasure_range": [
+          "0.0",
+          "0.01"
+        ]
+      }
+    ],
+    [
+      "PlayoutBufferStage",
+      "PlayoutBuffer",
+      {
+        "adapt_range": [
+          "0.0",
+          "0.003"
+        ],
+        "burst_probability": "0.3",
+        "frame_ms": 20,
+        "late_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "ClockDriftStage",
+      "ClockDrift",
+      {
+        "ppm_range": [
+          "-50.0",
+          "50.0"
+        ]
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->24000",
+      {
+        "from_sr": 8000,
+        "to_sr": 24000,
+        "zeros": 32
+      }
+    ]
+  ],
+  "voip_to_cellular_wideband@1": [
+    [
+      "ResampleStage",
+      "Resample->16000",
+      {
+        "from_sr": 24000,
+        "to_sr": 16000,
+        "zeros": 32
+      }
+    ],
+    [
+      "AmbientNoiseStage",
+      "Ambient",
+      {
+        "knee_hz": "200.0",
+        "low_hz": "60.0",
+        "snr_range": [
+          "40.0",
+          "55.0"
+        ]
+      }
+    ],
+    [
+      "SpeechLevelStage",
+      "SpeechLevel",
+      {
+        "max_gain_db": "30.0",
+        "target_range": [
+          "-32.0",
+          "-22.0"
+        ]
+      }
+    ],
+    [
+      "LimiterStage",
+      "Limiter",
+      {
+        "ceiling": "0.8912509381337456",
+        "knee": "0.5011872336272722"
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:opus",
+      {
+        "backend": "libopus",
+        "bitrate": "24k",
+        "burst_probability": "0.3",
+        "codec": "opus",
+        "erasure_range": [
+          "0.0",
+          "0.01"
+        ],
+        "fec": true
+      }
+    ],
+    [
+      "ChannelEdgeStage",
+      "ChannelEdge",
+      {
+        "low_range": [
+          "50.0",
+          "80.0"
+        ],
+        "pass_range": [
+          "6800.0",
+          "7100.0"
+        ],
+        "stop_db": "45.0",
+        "stop_hz": "8000.0"
+      }
+    ],
+    [
+      "CodecStage",
+      "Codec:amr_wb",
+      {
+        "backend": "ffmpeg",
+        "bitrate": "12.65k",
+        "burst_probability": "0.3",
+        "codec": "amr_wb",
+        "erasure_range": [
+          "0.0",
+          "0.01"
+        ]
+      }
+    ],
+    [
+      "PlayoutBufferStage",
+      "PlayoutBuffer",
+      {
+        "adapt_range": [
+          "0.0",
+          "0.003"
+        ],
+        "burst_probability": "0.3",
+        "frame_ms": 20,
+        "late_range": [
+          "0.0",
+          "0.0"
+        ]
+      }
+    ],
+    [
+      "ClockDriftStage",
+      "ClockDrift",
+      {
+        "ppm_range": [
+          "-50.0",
+          "50.0"
+        ]
+      }
+    ],
+    [
+      "ResampleStage",
+      "Resample->24000",
+      {
+        "from_sr": 16000,
+        "to_sr": 24000,
+        "zeros": 32
+      }
+    ]
+  ]
+}

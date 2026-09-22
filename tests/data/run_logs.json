@@ -1,0 +1,85 @@
+{
+  "pstn_g726@1": [
+    "Resample->8000: 24000 -> 8000 Hz",
+    "Ambient: SNR 42.4 dB re active speech",
+    "SpeechLevel: target -26.4 dBov, mean gain * dB",
+    "ChannelEdge: low 252 Hz, pass 3397 Hz, -45 dB at 4000 Hz @ 8000",
+    "Codec:g726: ffmpeg *, decoder adpcm_g726, bitrate=32k",
+    "ClockDrift: -32 ppm",
+    "Resample->24000: 8000 -> 24000 Hz"
+  ],
+  "pstn_narrowband@1": [
+    "Resample->8000: 24000 -> 8000 Hz",
+    "Ambient: SNR 42.4 dB re active speech",
+    "SpeechLevel: target -26.4 dBov, mean gain * dB",
+    "ChannelEdge: low 252 Hz, pass 3397 Hz, -45 dB at 4000 Hz @ 8000",
+    "Compand-mulaw: G.711",
+    "Codec:g711_ulaw: native G.711",
+    "ClockDrift: -32 ppm",
+    "Resample->24000: 8000 -> 24000 Hz"
+  ],
+  "stress_multi_transcode@1": [
+    "Resample->16000: 24000 -> 16000 Hz",
+    "Bandlimit: passband [85, 7038] Hz @ 16000",
+    "Codec:opus: ffmpeg *, decoder libopus, bitrate=16k",
+    "PacketLoss: loss=0.027, lost 0/50 frames, conceal=True",
+    "Resample->8000: 16000 -> 8000 Hz",
+    "Bandlimit: passband [328, 3367] Hz @ 8000",
+    "Codec:amr_nb: ffmpeg *, decoder libopencore_amrnb, bitrate=12.2k",
+    "Compand-alaw: G.711",
+    "Codec:g711_alaw: native G.711",
+    "PacketLoss: loss=0.020, lost 3/50 frames, conceal=True",
+    "Resample->16000: 8000 -> 16000 Hz",
+    "Codec:amr_wb: ffmpeg *, decoder libopencore_amrwb, bitrate=12.65k",
+    "JitterBuffer: late_rate=0.014, concealed 0 frames",
+    "AGC(static): target -20.1 dBFS, mean gain * dB",
+    "Noise(pink): SNR 20.1 dB",
+    "Clip(soft): thr=0.979, drive=+0.3 dB",
+    "SpeedDrift: drift -0.331%",
+    "TimeOffset: +17.5 ms (+280 samples)",
+    "Resample->24000: 16000 -> 24000 Hz"
+  ],
+  "voip_g722_wideband@1": [
+    "Resample->16000: 24000 -> 16000 Hz",
+    "Ambient: SNR 47.4 dB re active speech",
+    "SpeechLevel: target -24.8 dBov, mean gain * dB",
+    "ChannelEdge: low 65 Hz, pass 7038 Hz, -45 dB at 8000 Hz @ 16000",
+    "Codec:g722: ffmpeg *, decoder adpcm_g722, erased 0/50 frames (G.711 App. I PLC)",
+    "PlayoutBuffer: late_rate=0.000, concealed 0 frames, adapt events none",
+    "ClockDrift: -19 ppm",
+    "Resample->24000: 16000 -> 24000 Hz"
+  ],
+  "voip_opus_wideband@1": [
+    "Resample->16000: 24000 -> 16000 Hz",
+    "Ambient: SNR 47.4 dB re active speech",
+    "SpeechLevel: target -24.8 dBov, mean gain * dB",
+    "ChannelEdge: low 65 Hz, pass 7102 Hz, -45 dB at 8000 Hz @ 16000",
+    "Codec:opus: libopus *, bitrate=24k, encoder told 4 % loss, erased 1/50 frames (*)",
+    "PlayoutBuffer: late_rate=0.000, concealed 0 frames, adapt events none",
+    "ClockDrift: -19 ppm",
+    "Resample->24000: 16000 -> 24000 Hz"
+  ],
+  "voip_to_cellular_narrowband@1": [
+    "Resample->16000: 24000 -> 16000 Hz",
+    "Ambient: SNR 47.4 dB re active speech",
+    "SpeechLevel: target -24.8 dBov, mean gain * dB",
+    "Codec:opus: libopus *, bitrate=24k, encoder told 0 % loss, erased 0/50 frames (*)",
+    "Resample->8000: 16000 -> 8000 Hz",
+    "ChannelEdge: low 117 Hz, pass 3387 Hz, -45 dB at 4000 Hz @ 8000",
+    "Codec:amr_nb: ffmpeg *, decoder libopencore_amrnb, bitrate=12.2k, erased 0/50 frames (decoder concealment)",
+    "PlayoutBuffer: late_rate=0.000, concealed 0 frames, adapt events none",
+    "ClockDrift: -24 ppm",
+    "Resample->24000: 8000 -> 24000 Hz"
+  ],
+  "voip_to_cellular_wideband@1": [
+    "Resample->16000: 24000 -> 16000 Hz",
+    "Ambient: SNR 47.4 dB re active speech",
+    "SpeechLevel: target -24.8 dBov, mean gain * dB",
+    "Codec:opus: libopus *, bitrate=24k, encoder told 0 % loss, erased 0/50 frames (*)",
+    "ChannelEdge: low 78 Hz, pass 6973 Hz, -45 dB at 8000 Hz @ 16000",
+    "Codec:amr_wb: ffmpeg *, decoder libopencore_amrwb, bitrate=12.65k, erased 0/50 frames (decoder concealment)",
+    "PlayoutBuffer: late_rate=0.000, concealed 0 frames, adapt events none",
+    "ClockDrift: -24 ppm",
+    "Resample->24000: 16000 -> 24000 Hz"
+  ]
+}
