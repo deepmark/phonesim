@@ -57,8 +57,10 @@ open encoder and ffmpeg has no G.729 encoder, so neither is offered.
 ## Installation
 
 ```bash
-# from the repo root:
-pip install -e .            # core: numpy, torch, soundfile
+pip install phonesim        # core: numpy, torch, soundfile
+
+# or from the repo root:
+pip install -e .            # core
 pip install -e ".[full]"    # + pyyaml, matplotlib, pesq, pystoi, pytest
 
 # codec profiles need ffmpeg on the PATH:
