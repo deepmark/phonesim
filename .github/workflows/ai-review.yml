@@ -1,0 +1,12 @@
+name: AI code review
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+jobs:
+  review:
+    uses: deepmark/ai-code-review/.github/workflows/review.yml@v1
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets:
+      openai-api-key: ${{ secrets.OPENAI_API_KEY }}
