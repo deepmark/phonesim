@@ -58,6 +58,13 @@
 
 ### Changed
 
+- An unset output rate is the input rate. `PhoneCallSimulator` and
+  `PhoneCallPipeline` without `output_sample_rate`, `build_profile` without
+  `output_sr`, a config without `output_sr`, and `phonesim run` / `batch`
+  without `--out-sr` return audio at the input rate. 0.1.0 resampled it to
+  24 kHz, so a caller at another input rate that did not set the output rate
+  silently got audio at a different rate from its own. Set the output rate to
+  24000 to keep 0.1.0's output.
 - Profile versions fix the stage chain and its parameters, not the arithmetic
   inside a stage: this release keeps every version although output changes
   (above). Output is reproducible for a given phonesim release, seed, profile
@@ -66,12 +73,6 @@
 
 ### Deprecated
 
-- An unset output rate with an input rate other than 24 kHz:
-  `PhoneCallSimulator` and `PhoneCallPipeline` without `output_sample_rate`,
-  `build_profile` without `output_sr`, a config without `output_sr`, and
-  `phonesim run` / `batch` with `--sr` but without `--out-sr` still resample
-  the output to 24 kHz, now with a `FutureWarning`. From 0.3.0 the output rate
-  defaults to the input rate; set it to keep 24 kHz.
 - `save_audio` without `sr` writes a 24 kHz header whatever rate the signal is
   at, now with a `FutureWarning`; from 0.3.0 `sr` is required.
 - `analyze_channel` and `plot_channel` without `sample_rate` take the signals

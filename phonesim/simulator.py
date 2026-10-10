@@ -119,8 +119,7 @@ class PhoneCallSimulator(_SimulatorBase):
         Rate of the signal entering the simulator, in Hz (default 24000).
     output_sample_rate:
         Rate of the signal leaving it; the output is always resampled to it.
-        Unset, it is 24000 Hz, with a ``FutureWarning`` when the input rate
-        differs: from 0.3.0 it defaults to the input rate.
+        Unset, it is the input rate.
     profile:
         Name of a registered profile (see :func:`phonesim.profiles.list_profiles`).
     randomize:
@@ -150,7 +149,7 @@ class PhoneCallSimulator(_SimulatorBase):
         seed: Optional[int] = None,
     ):
         self.input_sample_rate = int(input_sample_rate)
-        self.output_sample_rate = resolve_output_rate(self.input_sample_rate, output_sample_rate, "output_sample_rate")
+        self.output_sample_rate = resolve_output_rate(self.input_sample_rate, output_sample_rate)
         self.profile_name = profile
         self.randomize = randomize
         self.default_seed = seed
@@ -207,6 +206,6 @@ class PhoneCallPipeline(_SimulatorBase):
         name: str = "explicit",
     ):
         self.input_sample_rate = int(input_sample_rate)
-        self.output_sample_rate = resolve_output_rate(self.input_sample_rate, output_sample_rate, "output_sample_rate")
+        self.output_sample_rate = resolve_output_rate(self.input_sample_rate, output_sample_rate)
         self.randomize = randomize
         self.pipeline = Pipeline(stages, name=name)

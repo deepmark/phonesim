@@ -18,10 +18,9 @@ Two config shapes are supported:
       ]}
 
 ``input_sr`` and ``output_sr`` are the rates of the signal entering and leaving
-the pipeline; both default to 24000 when the key is absent. An absent
-``output_sr`` with another ``input_sr`` warns (``FutureWarning``): from 0.3.0 it
-defaults to ``input_sr``. ``params`` are keyword arguments for the profile
-builder and may be omitted.
+the pipeline; an absent ``input_sr`` is 24000 and an absent ``output_sr`` is
+``input_sr``. ``params`` are keyword arguments for the profile builder and may
+be omitted.
 
 YAML is used if PyYAML is installed; JSON always works.
 """
@@ -115,7 +114,7 @@ def pipeline_from_config(obj: Any) -> tuple[Pipeline, int, int]:
         raise ValueError("config must be a mapping with 'profile' or 'stages'")
     # An empty YAML key (``input_sr:``) loads as None and takes the default.
     input_sr = int(cfg.get("input_sr") or _DEFAULT_SR)
-    output_sr = resolve_output_rate(input_sr, cfg.get("output_sr") or None, "output_sr")
+    output_sr = resolve_output_rate(input_sr, cfg.get("output_sr") or None)
     if "profile" in cfg:
         params = cfg.get("params") or {}
         if not isinstance(params, dict):

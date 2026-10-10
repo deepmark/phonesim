@@ -20,8 +20,7 @@ codec this machine cannot run raises :class:`CodecUnavailableError` when built.
 Frame erasures are drawn per codec hop: AMR and Opus conceal them with their own
 decoders, G.722 with the G.711 Appendix I algorithm on the decoded signal.
 Every profile starts and ends at the caller's sample rates (24 kHz by default;
-from 0.3.0 an output rate left unset in :func:`build_profile` is the input
-rate).
+:func:`build_profile` takes an unset output rate to be the input rate).
 """
 
 from __future__ import annotations
@@ -71,9 +70,7 @@ def resolve_profile(name: str) -> str:
 def build_profile(name: str, input_sr: int = 24000, output_sr: Optional[int] = None, **kw) -> Pipeline:
     """The pipeline of profile ``name`` (bare or ``name@N``) from ``input_sr`` to ``output_sr``.
 
-    ``kw`` are the profile's parameters. An unset ``output_sr`` is 24000, with
-    a ``FutureWarning`` when ``input_sr`` differs: from 0.3.0 it defaults to
-    ``input_sr``.
+    ``kw`` are the profile's parameters. An unset ``output_sr`` is ``input_sr``.
     """
     name = resolve_profile(name)
     if name not in _REGISTRY:
@@ -87,7 +84,7 @@ def build_profile(name: str, input_sr: int = 24000, output_sr: Optional[int] = N
         raise TypeError(
             f"profile {name!r} has no parameter(s) {sorted(unknown)}; accepts {sorted(allowed)}"
         )
-    output_sr = resolve_output_rate(input_sr, output_sr, "output_sr")
+    output_sr = resolve_output_rate(input_sr, output_sr)
     pipe = fn(input_sr=input_sr, output_sr=output_sr, **kw)
     pipe.name = name
     return pipe

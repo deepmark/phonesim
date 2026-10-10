@@ -1,7 +1,6 @@
 """Sample-rate contracts of the library API.
 
-An unset output rate is 24 kHz, with a ``FutureWarning`` when the input rate
-differs (from 0.3.0 it is the input rate). ``save_audio`` without ``sr`` and the
+An unset output rate is the input rate. ``save_audio`` without ``sr`` and the
 analysis functions without ``sample_rate`` take 24 kHz and warn. A
 ``ResampleStage`` whose ``from_sr`` disagrees with the signal it receives warns
 and resamples from the signal's rate. Native G.711 only, so no ffmpeg build is
@@ -52,28 +51,24 @@ def no_warnings():
         yield
 
 
-# Each builds a pipeline from 16 kHz with the output rate unset; the setting it names.
+# Each builds a pipeline from ``sr`` with the output rate unset.
 UNSET_OUTPUT = {
-    "PhoneCallSimulator": ("output_sample_rate",
-                           lambda: PhoneCallSimulator(input_sample_rate=16000, profile="pstn_narrowband")),
-    "PhoneCallPipeline": ("output_sample_rate", lambda: PhoneCallPipeline(_g711(), input_sample_rate=16000)),
-    "build_profile": ("output_sr", lambda: build_profile("pstn_narrowband", input_sr=16000)),
-    "from_config": ("output_sr",
-                    lambda: PhoneCallSimulator.from_config({"profile": "pstn_narrowband", "input_sr": 16000})),
+    "PhoneCallSimulator": lambda sr: PhoneCallSimulator(input_sample_rate=sr, profile="pstn_narrowband"),
+    "PhoneCallPipeline": lambda sr: PhoneCallPipeline(_g711(), input_sample_rate=sr),
+    "build_profile": lambda sr: build_profile("pstn_narrowband", input_sr=sr),
+    "from_config": lambda sr: PhoneCallSimulator.from_config({"profile": "pstn_narrowband", "input_sr": sr}),
 }
 
 
+@pytest.mark.parametrize("sr", [16000, 44100])
 @pytest.mark.parametrize("how", sorted(UNSET_OUTPUT))
-def test_unset_output_rate_stays_24k_and_warns_when_the_input_differs(how):
-    setting, build = UNSET_OUTPUT[how]
-    with pytest.warns(FutureWarning, match=rf"^{setting} not set: the output is resampled to 24000 Hz, "
-                                           r"not kept at the 16000 Hz input rate; from 0\.3\.0"):
-        built = build()
+def test_unset_output_rate_is_the_input_rate(no_warnings, how, sr):
+    built = UNSET_OUTPUT[how](sr)
     if how == "build_profile":
-        assert built.stages[-1].to_sr == 24000
+        assert built.stages[-1].to_sr == sr
     else:
-        assert built.output_sample_rate == 24000
-        assert len(built(_tone(16000), seed=0)) == 24000 // 4
+        assert built.output_sample_rate == sr
+        assert len(built(_tone(sr), seed=0)) == len(_tone(sr))
 
 
 def test_unset_output_rate_at_24k_does_not_warn(no_warnings):
@@ -174,8 +169,12 @@ def test_from_sr_that_is_not_a_rate_warns_rather_than_failing():
 
 # Each leaves a rate unset or mismatched somewhere inside phonesim.
 CALLER_WARNINGS = {
-    "simulator": lambda tmp: PhoneCallSimulator(input_sample_rate=16000, profile="pstn_narrowband"),
-    "from_config": lambda tmp: PhoneCallSimulator.from_config({"profile": "pstn_narrowband", "input_sr": 16000}),
+    "analyze_channel": lambda tmp: analyze_channel(_tone(16000), _tone(16000),
+                                                   compute_pesq=False, compute_stoi=False),
+    "from_config": lambda tmp: PhoneCallSimulator.from_config({"input_sr": 16000, "stages": [
+        {"type": "ResampleStage", "from_sr": 24000, "to_sr": 8000},
+        {"type": "CodecStage", "codec": "g711_ulaw", "backend": "native"},
+    ]})(_tone(16000), seed=0),
     "save_audio": lambda tmp: save_audio(str(tmp / "x.wav"), np.zeros(8, np.float32)),
     "from_sr": lambda tmp: PhoneCallPipeline(_g711(24000), input_sample_rate=16000,
                                              output_sample_rate=16000)(_tone(16000), seed=0),

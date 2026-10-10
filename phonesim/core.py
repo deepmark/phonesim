@@ -249,21 +249,9 @@ def warn_at_caller(message: str, category: type = FutureWarning) -> None:
     warnings.warn(message, category, stacklevel=level + 1)
 
 
-def resolve_output_rate(input_sr: int, output_sr: Optional[int], setting: str) -> int:
-    """The output rate of a pipeline from ``input_sr``; ``output_sr`` is ``None`` when unset.
-
-    An unset output rate is 24000 Hz. When the input rate differs this warns
-    (``FutureWarning``, naming the caller's ``setting``, at the caller's line):
-    from 0.3.0 an unset output rate is the input rate.
-    """
-    if output_sr is not None:
-        return int(output_sr)
-    if int(input_sr) != 24000:
-        warn_at_caller(
-            f"{setting} not set: the output is resampled to 24000 Hz, not kept at the {int(input_sr)} Hz "
-            f"input rate; from 0.3.0 it defaults to the input rate. Set {setting} to choose"
-        )
-    return 24000
+def resolve_output_rate(input_sr: int, output_sr: Optional[int]) -> int:
+    """The output rate of a pipeline: ``output_sr``, or ``input_sr`` when it is unset (``None``)."""
+    return int(input_sr if output_sr is None else output_sr)
 
 
 # ----------------------------------------------------------------------------

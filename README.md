@@ -149,30 +149,29 @@ save_audio("degraded.wav", y, sr=24000)
 ```
 
 `sim(x)` accepts and returns a NumPy array **or** a torch tensor, of rank
-`[T]`, `[B, T]`, or `[B, C, T]`, and gives back the same type and rank at 24 kHz.
+`[T]`, `[B, T]`, or `[B, C, T]`, and gives back the same type and rank at the
+output rate (24 kHz here).
 `sim(x, seed=1234, per_example=True)` gives each row of a batch its own call.
 
 ### Other sample rates
 
 An array carries no sample rate, so each call states it: `input_sample_rate`
-is the rate `x` is at, `output_sample_rate` the rate `y` comes back at, and
-`save_audio` writes the `sr` it is given into the file header. To keep a
-file's own rate:
+is the rate `x` is at, `output_sample_rate` the rate `y` comes back at (the
+input rate unless set), and `save_audio` writes the `sr` it is given into the
+file header. To keep a file's own rate:
 
 ```python
 x, sr = load_audio("input.wav", sr=None)                # the file's rate, e.g. 44100
-sim = PhoneCallSimulator(input_sample_rate=sr, output_sample_rate=sr)
+sim = PhoneCallSimulator(input_sample_rate=sr)          # output at the same rate
 y = sim(x, seed=1234)
 save_audio("degraded.wav", y, sr=sim.output_sample_rate)
 ```
 
 Each profile resamples to 8 or 16 kHz on entry and to the output rate on exit,
 through the same low-pass at any pair of rates, so a 44.1 kHz caller gets the
-channel a 24 or 48 kHz caller gets. An unset `output_sample_rate` is
-24 kHz; with another input rate the simulator warns (`FutureWarning`), as from
-0.3.0 it defaults to the input rate. `save_audio` without `sr`, and
-`analyze_channel` / `plot_channel` without `sample_rate`, take 24 kHz and warn;
-from 0.3.0 the rate is required.
+channel a 24 or 48 kHz caller gets. `save_audio` without `sr`, and
+`analyze_channel` / `plot_channel` without `sample_rate`, take 24 kHz and warn
+(`FutureWarning`); from 0.3.0 the rate is required.
 
 ---
 
@@ -273,8 +272,8 @@ into a `Pipeline`. The stages, grouped by what they model:
   fractional resampling), `SpeedDriftStage` (drift as a linear-interpolation
   resample), `TimeOffsetStage` (recording start offset).
 
-A final resample returns the signal to the output rate (24 kHz by default)
-regardless of the internal path.
+A final resample returns the signal to the output rate (the input rate unless
+set) regardless of the internal path.
 
 ---
 
@@ -314,12 +313,10 @@ python -m phonesim.cli batch --in-dir clips/ --out-dir degraded/ --profile voip_
 `run` and `batch` build the pipeline from `--profile` (default
 `voip_to_cellular_narrowband`) or from `--config config.yaml`, which replaces
 `--profile`: the file names a profile or lists the stages itself. With
-`--config` the file's `input_sr` / `output_sr` (default 24000) set the rates
-and `--sr` / `--out-sr` may only repeat them; a different value exits with
-status 2. Without `--config`, `--sr` / `--out-sr` set the rates (default
-24000). An input rate other than 24000 without an output rate (`--sr` without
-`--out-sr`, or a config's `input_sr` without `output_sr`) still writes 24 kHz
-and warns; from 0.3.0 the output rate defaults to the input rate.
+`--config` the file's `input_sr` / `output_sr` set the rates and `--sr` /
+`--out-sr` may only repeat them; a different value exits with status 2.
+Without `--config`, `--sr` / `--out-sr` set the rates. The input rate defaults
+to 24000 and the output rate to the input rate.
 `--deterministic` uses the nominal (non-random) parameters.
 `analyze --plot` needs `pip install "phonesim[plot]"`.
 
@@ -346,8 +343,8 @@ stages:
 sim = PhoneCallSimulator.from_config("config.yaml")
 ```
 
-`input_sr` and `output_sr` are optional and default to 24000 (an `input_sr`
-other than 24000 without `output_sr` warns; see the CLI section). A
+`input_sr` and `output_sr` are optional: `input_sr` defaults to 24000 and
+`output_sr` to `input_sr`. A
 `ResampleStage`'s `from_sr` is the rate the signal should reach it at: the
 `input_sr`, or the previous resample's `to_sr`. A signal at another rate is
 resampled from the rate it has, with a `FutureWarning`; from 0.3.0 that raises
@@ -380,7 +377,7 @@ seeds drawn from a generator seeded with it (`phonesim.simulator.row_seeds`).
 
 - **Internal tensor convention**: `[B, C, T]`. The public API accepts `[T]`,
   `[B, T]`, `[B, C, T]`, NumPy or torch, and restores the original rank/type.
-- **Output rate**: always `output_sample_rate` (24 kHz by default).
+- **Output rate**: always `output_sample_rate` (the input rate unless set).
 
 ---
 
