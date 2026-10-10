@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 
 from phonesim.core import SimContext, Stage, resolve_range
+from phonesim import dsp
 
 
 class TimeOffsetStage(Stage):
@@ -65,7 +66,7 @@ class SpeedDriftStage(Stage):
         b, c, t = x.shape
         # Linear interpolation; ClockDriftStage is the windowed-sinc equivalent in ppm.
         new_len = max(2, int(round(t * (1.0 + drift))))
-        y = F.interpolate(x, size=new_len, mode="linear", align_corners=False)
+        y = dsp.linear_resize(x, new_len)
         # Re-interpret at the original rate: trim/pad back to the original length.
         if y.shape[-1] >= t:
             y = y[..., :t]

@@ -628,6 +628,17 @@ def test_clock_drift_is_ppm_scale_and_flat():
     assert abs(hf) < 0.3                       # flat to within 0.3 dB up to 7.2 kHz
 
 
+def test_hum_keeps_its_phase_on_long_input():
+    from phonesim.core import SimContext
+    sr, n = 16000, 2**22                       # 4.4 min, where a float32 time axis is off by 0.01
+    ctx = SimContext(sample_rate=sr, randomize=False, generator=torch.Generator().manual_seed(5))
+    out = NoiseStage(color="hum")._make_noise((1, 1, n), sr, ctx, "cpu", torch.float32)[0, 0].double()
+    white = torch.randn((1, 1, n), generator=torch.Generator().manual_seed(5))[0, 0, -4096:].double()
+    t = torch.arange(n - 4096, n, dtype=torch.float64) / sr
+    hum = torch.sin(2 * np.pi * 50.0 * t) + 0.5 * torch.sin(2 * np.pi * 100.0 * t)
+    assert float((out[-4096:] - (0.7 * hum + 0.3 * white)).abs().max()) < 1e-5
+
+
 @pytest.mark.parametrize("codec", FFMPEG_CODECS)
 def test_ffmpeg_codecs_are_time_aligned(codec):
     """Decoded output within one sample of the input: Opus at 16 kHz, the others at their native rate."""

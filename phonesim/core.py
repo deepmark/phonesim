@@ -26,6 +26,8 @@ parameters correctly even when an upstream :class:`ResampleStage` changed the ra
 from __future__ import annotations
 
 import dataclasses
+import sys
+import warnings
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -227,6 +229,29 @@ def resolve_range(value: Union[float, int, tuple, list]) -> tuple[float, float]:
             raise ValueError(f"Range must have 2 elements, got {value!r}")
         return float(value[0]), float(value[1])
     return float(value), float(value)
+
+
+def _library_frame(frame) -> bool:
+    """A frame of phonesim's library code, or of torch's ``Module.__call__``
+    between two of them. The CLI counts as a caller."""
+    name = frame.f_globals.get("__name__", "")
+    if name == "phonesim.cli":
+        return False
+    return name == "phonesim" or name.startswith("phonesim.") or name == "torch.nn.modules.module"
+
+
+def warn_at_caller(message: str, category: type = FutureWarning) -> None:
+    """``warnings.warn`` attributed to the innermost frame outside phonesim, so
+    the warning names the caller's line however deep in phonesim it is raised."""
+    frame, level = sys._getframe(1), 1
+    while frame is not None and _library_frame(frame):
+        frame, level = frame.f_back, level + 1
+    warnings.warn(message, category, stacklevel=level + 1)
+
+
+def resolve_output_rate(input_sr: int, output_sr: Optional[int]) -> int:
+    """The output rate of a pipeline: ``output_sr``, or ``input_sr`` when it is unset (``None``)."""
+    return int(input_sr if output_sr is None else output_sr)
 
 
 # ----------------------------------------------------------------------------

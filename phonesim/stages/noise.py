@@ -40,9 +40,10 @@ class NoiseStage(Stage):
             out = torch.fft.irfft(spec, n=N, dim=-1)
             return out
         if self.color == "hum":
-            t = torch.arange(shape[-1], device=device, dtype=dtype) / sr
+            # Time axis in float64 on the CPU, so the tone keeps its phase on long clips.
+            t = torch.arange(shape[-1], dtype=torch.float64) / sr
             hum = torch.sin(2 * torch.pi * 50.0 * t) + 0.5 * torch.sin(2 * torch.pi * 100.0 * t)
-            hum = hum.view(*([1] * (n.dim() - 1)), -1)
+            hum = hum.to(device=device, dtype=dtype).view(*([1] * (n.dim() - 1)), -1)
             return 0.7 * hum + 0.3 * n
         raise ValueError(f"Unknown noise color {self.color!r}")
 

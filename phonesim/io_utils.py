@@ -11,6 +11,7 @@ import soundfile as sf
 import torch
 
 from phonesim import dsp
+from phonesim.core import warn_at_caller
 
 
 class ClippingWarning(RuntimeWarning):
@@ -20,8 +21,10 @@ class ClippingWarning(RuntimeWarning):
 def load_audio(path: str, sr: Optional[int] = 24000, mono: bool = True):
     """Load an audio file, optionally resampling to ``sr`` and downmixing to mono.
 
-    Returns ``(waveform_float32_numpy, sr)`` where the waveform is ``[T]`` (mono)
-    or ``[C, T]`` (multichannel).
+    ``sr`` defaults to 24000, the simulator's default input rate; ``sr=None``
+    keeps the file's own rate. Returns ``(waveform_float32_numpy, sr)`` where the
+    waveform is ``[T]`` (mono) or ``[C, T]`` (multichannel) and ``sr`` is the
+    rate it is at, the ``input_sample_rate`` to simulate it with.
     """
     data, file_sr = sf.read(path, dtype="float32", always_2d=True)  # [T, C]
     data = data.T  # [C, T]
@@ -37,8 +40,13 @@ def load_audio(path: str, sr: Optional[int] = 24000, mono: bool = True):
     return data, file_sr
 
 
-def save_audio(path: str, x, sr: int = 24000, subtype: str = "PCM_16", normalize: bool = False) -> None:
+def save_audio(path: str, x, sr: Optional[int] = None, subtype: str = "PCM_16", normalize: bool = False) -> None:
     """Save ``x`` ([T], [C, T] or torch tensor) to ``path`` at ``sr``.
+
+    ``sr`` is the rate ``x`` is at and goes into the file header; for a
+    simulator's output it is ``sim.output_sample_rate``. Without ``sr`` the
+    header says 24000 Hz, with a ``FutureWarning``; from 0.3.0 ``sr`` is
+    required.
 
     By default the signal is written as-is, with any out-of-range samples clipped
     to ``[-1, 1]`` (matching what a real fixed-point sink does). This preserves
@@ -46,6 +54,12 @@ def save_audio(path: str, x, sr: int = 24000, subtype: str = "PCM_16", normalize
     Set ``normalize=True`` to instead peak-normalise the whole clip when it
     exceeds full scale (which silently changes the level).
     """
+    if sr is None:
+        warn_at_caller(
+            "save_audio without sr writes a 24000 Hz header, whatever rate x is at; pass sr "
+            "(e.g. sim.output_sample_rate). From 0.3.0 sr is required"
+        )
+        sr = 24000
     if isinstance(x, torch.Tensor):
         x = x.detach().cpu().numpy()
     x = np.asarray(x, dtype=np.float32)

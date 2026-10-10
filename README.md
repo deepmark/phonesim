@@ -149,8 +149,29 @@ save_audio("degraded.wav", y, sr=24000)
 ```
 
 `sim(x)` accepts and returns a NumPy array **or** a torch tensor, of rank
-`[T]`, `[B, T]`, or `[B, C, T]`, and gives back the same type and rank at 24 kHz.
+`[T]`, `[B, T]`, or `[B, C, T]`, and gives back the same type and rank at the
+output rate (24 kHz here).
 `sim(x, seed=1234, per_example=True)` gives each row of a batch its own call.
+
+### Other sample rates
+
+An array carries no sample rate, so each call states it: `input_sample_rate`
+is the rate `x` is at, `output_sample_rate` the rate `y` comes back at (the
+input rate unless set), and `save_audio` writes the `sr` it is given into the
+file header. To keep a file's own rate:
+
+```python
+x, sr = load_audio("input.wav", sr=None)                # the file's rate, e.g. 44100
+sim = PhoneCallSimulator(input_sample_rate=sr)          # output at the same rate
+y = sim(x, seed=1234)
+save_audio("degraded.wav", y, sr=sim.output_sample_rate)
+```
+
+Each profile resamples to 8 or 16 kHz on entry and to the output rate on exit,
+through the same low-pass at any pair of rates, so a 44.1 kHz caller gets the
+channel a 24 or 48 kHz caller gets. `save_audio` without `sr`, and
+`analyze_channel` / `plot_channel` without `sample_rate`, take 24 kHz and warn
+(`FutureWarning`); from 0.3.0 the rate is required.
 
 ---
 
@@ -162,9 +183,11 @@ start and end at 24 kHz by default.
 
 Profiles are versioned: `name` resolves to the latest version, `name@N` pins
 version `N`. A version fixes the stage chain and its parameters; a change to
-either ships as a new version. The codec implementation is not part of the
-version: the ffmpeg or libopus build and the decoder that ran are recorded in
-the run log, and output is reproducible for a given seed, version and codec
+either ships as a new version. The codec implementation and the arithmetic
+inside a stage are not part of the version: the ffmpeg or libopus build and
+the decoder that ran are recorded in the run log, a release that corrects a
+stage's arithmetic states in the changelog how much the output changes, and
+output is reproducible for a given phonesim release, seed, version and codec
 build on one machine and torch thread count. `phonesim info` lists the versions.
 
 | Profile | Models | Internal rate | Path |
@@ -249,7 +272,8 @@ into a `Pipeline`. The stages, grouped by what they model:
   fractional resampling), `SpeedDriftStage` (drift as a linear-interpolation
   resample), `TimeOffsetStage` (recording start offset).
 
-A final resample returns the signal to 24 kHz regardless of the internal path.
+A final resample returns the signal to the output rate (the input rate unless
+set) regardless of the internal path.
 
 ---
 
@@ -262,9 +286,11 @@ packages are installed), and, if you pass `metrics={name: fn}` with
 `fn(audio, sr) -> float`, each of your own task metrics on clean vs degraded
 audio.
 
-`phonesim.plot_channel(clean, degraded, path="channel_analysis.png")` renders a
-side-by-side comparison (waveforms, spectrograms, log-mel, frequency response and
-band energy) to a PNG.
+`phonesim.plot_channel(clean, degraded, sample_rate=24000, path="channel_analysis.png")`
+renders a side-by-side comparison (waveforms, spectrograms, log-mel, frequency
+response and band energy) to a PNG. `sample_rate` is the rate both signals
+are at; without it both functions take 24 kHz and warn (`FutureWarning`), and
+from 0.3.0 it is required.
 
 ```python
 from phonesim import analyze_channel
@@ -287,10 +313,11 @@ python -m phonesim.cli batch --in-dir clips/ --out-dir degraded/ --profile voip_
 `run` and `batch` build the pipeline from `--profile` (default
 `voip_to_cellular_narrowband`) or from `--config config.yaml`, which replaces
 `--profile`: the file names a profile or lists the stages itself. With
-`--config` the file's `input_sr` / `output_sr` (default 24000) set the rates
-and `--sr` / `--out-sr` may only repeat them; a different value exits with
-status 2. Without `--config`, `--sr` / `--out-sr` set the rates (default
-24000). `--deterministic` uses the nominal (non-random) parameters.
+`--config` the file's `input_sr` / `output_sr` set the rates and `--sr` /
+`--out-sr` may only repeat them; a different value exits with status 2.
+Without `--config`, `--sr` / `--out-sr` set the rates. The input rate defaults
+to 24000 and the output rate to the input rate.
+`--deterministic` uses the nominal (non-random) parameters.
 `analyze --plot` needs `pip install "phonesim[plot]"`.
 
 ---
@@ -316,15 +343,21 @@ stages:
 sim = PhoneCallSimulator.from_config("config.yaml")
 ```
 
-`input_sr` and `output_sr` are optional and default to 24000.
+`input_sr` and `output_sr` are optional: `input_sr` defaults to 24000 and
+`output_sr` to `input_sr`. A
+`ResampleStage`'s `from_sr` is the rate the signal should reach it at: the
+`input_sr`, or the previous resample's `to_sr`. A signal at another rate is
+resampled from the rate it has, with a `FutureWarning`; from 0.3.0 that raises
+`ValueError`. Without `from_sr` the stage takes any rate.
 
 ---
 
 ## Reproducibility
 
 Every call takes an optional `seed`. The simulator seeds a dedicated
-`torch.Generator`, so the same input, seed, profile version and codec build
-(ffmpeg, libopus) yield identical output on one machine and torch thread count.
+`torch.Generator`, so the same input, seed, phonesim release, profile version
+and codec build (ffmpeg, libopus) yield identical output on one machine and
+torch thread count.
 Across machines the G.711 path reproduces to better than 60 dB SNR (the test
 suite pins its output); the adaptive coders (G.726, G.722, Opus, AMR) turn
 last-bit differences in their input into different bitstreams. The run log
@@ -344,7 +377,7 @@ seeds drawn from a generator seeded with it (`phonesim.simulator.row_seeds`).
 
 - **Internal tensor convention**: `[B, C, T]`. The public API accepts `[T]`,
   `[B, T]`, `[B, C, T]`, NumPy or torch, and restores the original rank/type.
-- **Output rate**: always `output_sample_rate` (24 kHz by default).
+- **Output rate**: always `output_sample_rate` (the input rate unless set).
 
 ---
 
@@ -421,7 +454,7 @@ call to an ordinary number, keeps the telephone band only.
 
 Each profile is a physically motivated model of its path; no comparison against
 recorded calls ships with this release. To check a profile against your own path, record the same clips through a real
-call, run `analyze_channel(clean, received)` on both the real and the simulated
+call, run `analyze_channel(clean, received, sample_rate=sr)` on both the real and the simulated
 output, and compare the distributions. Prefer changing a parameter for a physical
 reason over tuning it to a handful of recordings.
 

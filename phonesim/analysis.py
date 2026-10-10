@@ -17,6 +17,7 @@ import numpy as np
 import torch
 
 from phonesim import dsp
+from phonesim.core import warn_at_caller
 
 
 ArrayLike = Union[np.ndarray, torch.Tensor]
@@ -219,10 +220,21 @@ def frequency_response(clean: ArrayLike, degraded: ArrayLike, sr: int, n_fft: in
 # ----------------------------------------------------------------------------
 # Top-level analysis
 # ----------------------------------------------------------------------------
+def _analysis_rate(sample_rate: Optional[int], fn: str) -> int:
+    """``sample_rate``, or 24000 with a ``FutureWarning`` when it is not given."""
+    if sample_rate is not None:
+        return sample_rate
+    warn_at_caller(
+        f"{fn} without sample_rate takes the signals to be at 24000 Hz, whatever rate they are at; "
+        "pass sample_rate. From 0.3.0 it is required"
+    )
+    return 24000
+
+
 def analyze_channel(
     clean: ArrayLike,
     degraded: ArrayLike,
-    sample_rate: int = 24000,
+    sample_rate: Optional[int] = None,
     metrics: Optional[dict[str, Callable]] = None,
     compute_pesq: bool = True,
     compute_stoi: bool = True,
@@ -231,6 +243,9 @@ def analyze_channel(
 
     Parameters
     ----------
+    sample_rate:
+        Rate both signals are at, in Hz. Without it they are taken to be at
+        24000 Hz, with a ``FutureWarning``; from 0.3.0 it is required.
     metrics:
         Optional ``{name: fn}`` of caller-supplied metrics. Each ``fn(audio, sr)``
         returns a float and is evaluated on both signals, reported as
@@ -240,6 +255,7 @@ def analyze_channel(
     -------
     dict of metric name -> value (``None`` where a metric is unavailable).
     """
+    sample_rate = _analysis_rate(sample_rate, "analyze_channel")
     c = _to_np_mono(clean)
     d = _to_np_mono(degraded)
     report: dict = {}
@@ -267,15 +283,20 @@ def analyze_channel(
 def plot_channel(
     clean: ArrayLike,
     degraded: ArrayLike,
-    sample_rate: int = 24000,
+    sample_rate: Optional[int] = None,
     path: str = "channel_analysis.png",
     title: str = "Phone-call channel analysis",
 ):
-    """Render waveform, spectrogram, log-mel and frequency-response comparisons."""
+    """Render waveform, spectrogram, log-mel and frequency-response comparisons.
+
+    ``sample_rate`` is the rate both signals are at; without it they are taken
+    to be at 24000 Hz, with a ``FutureWarning``. From 0.3.0 it is required.
+    """
     try:
         import matplotlib
     except ImportError as e:
         raise ImportError("plot_channel needs matplotlib (pip install 'phonesim[plot]')") from e
+    sample_rate = _analysis_rate(sample_rate, "plot_channel")
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 

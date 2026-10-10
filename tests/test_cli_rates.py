@@ -2,14 +2,17 @@
 
 With ``--config`` the configuration's ``input_sr``/``output_sr`` drive loading
 and saving; an explicit flag must agree with it. In profile mode the flags
-apply and default to 24 kHz. Mistakes end in a one-line ``phonesim: ...``
-message on stderr: exit 2 for argument errors, 1 for everything else.
+apply: ``--sr`` defaults to 24 kHz and ``--out-sr`` to ``--sr``, as an absent
+``output_sr`` defaults to ``input_sr`` in a configuration. Mistakes
+end in a one-line ``phonesim: ...`` message on stderr: exit 2 for argument
+errors, 1 for everything else.
 """
 
 from __future__ import annotations
 
 import json
 import sys
+import warnings
 
 import numpy as np
 import pytest
@@ -229,3 +232,31 @@ def test_plot_channel_without_matplotlib_names_the_extra(monkeypatch):
     x = np.zeros(2400, dtype=np.float32)
     with pytest.raises(ImportError, match=r"phonesim\[plot\]"):
         plot_channel(x, x, sample_rate=24000, path="unused.png")
+
+
+def test_run_profile_sr_without_out_sr_writes_the_input_rate(tmp_path):
+    out = tmp_path / "out.wav"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        cli.main(["run", "--profile", "pstn_narrowband", "--seed", "0", "--sr", "16000",
+                  "--in", _wav(tmp_path / "in.wav", sr=16000), "--out", str(out)])
+    assert _rate_and_frames(out) == (16000, int(16000 * SECONDS))
+
+
+def test_run_config_without_output_sr_writes_the_input_rate(tmp_path):
+    cfg = tmp_path / "cfg.json"
+    cfg.write_text(json.dumps({"input_sr": 16000, "stages": CONFIG_16K["stages"]}))
+    out = tmp_path / "out.wav"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        cli.main(["run", "--config", str(cfg), "--in", _wav(tmp_path / "in.wav", sr=16000), "--out", str(out)])
+    assert _rate_and_frames(out) == (16000, int(16000 * SECONDS))
+
+
+def test_run_config_with_mismatched_from_sr_warns(tmp_path):
+    cfg = tmp_path / "cfg.json"
+    cfg.write_text(json.dumps({**CONFIG_16K, "stages": CONFIG["stages"]}))      # from_sr 24000, input 16000
+    out = tmp_path / "out.wav"
+    with pytest.warns(FutureWarning, match="^Resample->8000: from_sr 24000 Hz disagrees with the 16000 Hz signal"):
+        cli.main(["run", "--config", str(cfg), "--in", _wav(tmp_path / "in.wav", sr=16000), "--out", str(out)])
+    assert _rate_and_frames(out) == (16000, int(16000 * SECONDS))

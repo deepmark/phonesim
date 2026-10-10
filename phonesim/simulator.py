@@ -20,6 +20,7 @@ from phonesim.core import (
     fit_length,
     from_internal,
     make_context,
+    resolve_output_rate,
     to_internal,
 )
 from phonesim import profiles as P
@@ -114,10 +115,11 @@ class PhoneCallSimulator(_SimulatorBase):
 
     Parameters
     ----------
-    input_sample_rate, output_sample_rate:
-        Rates of the signal entering and leaving the simulator. The output is
-        always resampled to ``output_sample_rate`` (default 24 kHz) so it matches
-        the rate the downstream consumer expects.
+    input_sample_rate:
+        Rate of the signal entering the simulator, in Hz (default 24000).
+    output_sample_rate:
+        Rate of the signal leaving it; the output is always resampled to it.
+        Unset, it is the input rate.
     profile:
         Name of a registered profile (see :func:`phonesim.profiles.list_profiles`).
     randomize:
@@ -133,19 +135,21 @@ class PhoneCallSimulator(_SimulatorBase):
     >>> sim = PhoneCallSimulator(profile="voip_to_cellular_narrowband")
     >>> y = sim(x)                      # x: np.ndarray or torch.Tensor at 24 kHz
     >>> y = sim(x, seed=123)            # reproducible
+    >>> sim = PhoneCallSimulator(input_sample_rate=44100, output_sample_rate=44100)
+    >>> y = sim(x)                      # x and y at 44.1 kHz
     """
 
     def __init__(
         self,
         input_sample_rate: int = 24000,
-        output_sample_rate: int = 24000,
+        output_sample_rate: Optional[int] = None,
         profile: str = "voip_to_cellular_narrowband",
         randomize: bool = True,
         profile_params: Optional[dict] = None,
         seed: Optional[int] = None,
     ):
         self.input_sample_rate = int(input_sample_rate)
-        self.output_sample_rate = int(output_sample_rate)
+        self.output_sample_rate = resolve_output_rate(self.input_sample_rate, output_sample_rate)
         self.profile_name = profile
         self.randomize = randomize
         self.default_seed = seed
@@ -180,6 +184,9 @@ class PhoneCallSimulator(_SimulatorBase):
 class PhoneCallPipeline(_SimulatorBase):
     """Explicit composition of stages with the same conveniences as the simulator.
 
+    ``input_sample_rate`` and ``output_sample_rate`` are as for
+    :class:`PhoneCallSimulator`.
+
     >>> pipe = PhoneCallPipeline([
     ...     ResampleStage(24000, 16000),
     ...     BandlimitStage(low_hz=50, high_hz=7000),
@@ -194,11 +201,11 @@ class PhoneCallPipeline(_SimulatorBase):
         self,
         stages: list[Stage],
         input_sample_rate: int = 24000,
-        output_sample_rate: int = 24000,
+        output_sample_rate: Optional[int] = None,
         randomize: bool = True,
         name: str = "explicit",
     ):
         self.input_sample_rate = int(input_sample_rate)
-        self.output_sample_rate = int(output_sample_rate)
+        self.output_sample_rate = resolve_output_rate(self.input_sample_rate, output_sample_rate)
         self.randomize = randomize
         self.pipeline = Pipeline(stages, name=name)

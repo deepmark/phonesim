@@ -1,18 +1,24 @@
-"""Tests for the clock-drift stage: block-invariant output, logging, length and peak memory."""
+"""Tests for the drift stages: block-invariant output, logging, length, peak memory and exact positions on long inputs."""
 
 from __future__ import annotations
 
+import math
 import os
 import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 
 import phonesim
+from phonesim import dsp
 from phonesim.core import SimContext
-from phonesim.stages import timing
+from phonesim.stages import misc, timing
+
+# Past 2**21 samples float32 rounds a position to a quarter sample.
+LONG = 2**21 + 4096
 
 
 def _ctx(sr: int, seed: int = 0, randomize: bool = False) -> SimContext:
@@ -86,3 +92,55 @@ def test_drift_peak_memory_is_bounded():
     out = subprocess.run([sys.executable, "-c", _PEAK_RSS_KB], capture_output=True, text=True, env=env, timeout=120)
     assert out.returncode == 0, out.stderr
     assert int(out.stdout) < 300 * 1024, f"peak RSS grew by {int(out.stdout) // 1024} MB"
+
+
+def _sine(n: int, f: float, sr: int) -> torch.Tensor:
+    t = torch.arange(n, dtype=torch.float64)
+    return torch.sin(2 * math.pi * f / sr * t).float().view(1, 1, -1)
+
+
+def _linear_reference(x: np.ndarray, size: int) -> np.ndarray:
+    """``F.interpolate(mode="linear", align_corners=False)`` in float64."""
+    t = len(x)
+    src = np.clip((np.arange(size) + 0.5) * t / size - 0.5, 0, t - 1)
+    return np.interp(src, np.arange(t), x.astype(np.float64))
+
+
+@pytest.mark.parametrize("ppm", [40.0, -37.0])
+def test_clock_drift_stays_exact_on_long_input(ppm):
+    sr, f = 8000, 200.0
+    ratio = 1.0 + ppm * 1e-6
+    y = _drift(_sine(LONG, f, sr), ppm, _ctx(sr))[0, 0].double()
+    end = min(LONG, round(LONG * ratio)) - 64            # before the end padding, with full kernel support
+    m = torch.arange(end - 4096, end, dtype=torch.float64)
+    want = torch.sin(2 * math.pi * f / sr * m / ratio)
+    assert float((y[end - 4096:end] - want).abs().max()) < 1e-3
+
+
+@pytest.mark.parametrize("drift", [(0.003, 0.0031), (-0.0041, -0.004)])
+def test_speed_drift_stays_exact_on_long_input(drift):
+    sr = 16000
+    x = _sine(LONG, 100.0, sr)
+    y = misc.SpeedDriftStage(max_drift=drift).process(x, _ctx(sr))[0, 0].double().numpy()
+    size = max(2, round(LONG * (1.0 + sum(drift) / 2)))  # the stage's nominal drift
+    ref = _linear_reference(x[0, 0].numpy(), size)
+    n = min(LONG, size)
+    assert np.abs(y[n - 4096:n] - ref[n - 4096:n]).max() < 1e-5
+
+
+@pytest.mark.parametrize("t, size", [(1000, 1000), (1000, 1003), (8000, 7970), (4000, 2000), (3000, 9000), (5, 2)])
+def test_linear_resize_matches_float64_reference(t, size):
+    x = torch.randn(2, 1, t, generator=torch.Generator().manual_seed(1))
+    y = dsp.linear_resize(x, size)
+    assert y.shape == (2, 1, size) and y.dtype == x.dtype
+    for row in range(2):
+        assert np.abs(y[row, 0].double().numpy() - _linear_reference(x[row, 0].numpy(), size)).max() < 1e-6
+    if size == t:
+        assert torch.equal(y, x)
+
+
+def test_linear_resize_is_block_invariant(monkeypatch):
+    x = torch.randn(2, 3, 30011, generator=torch.Generator().manual_seed(2))
+    whole = dsp.linear_resize(x, 30131)
+    monkeypatch.setattr(dsp, "_LINEAR_BLOCK", 777)
+    assert torch.equal(dsp.linear_resize(x, 30131), whole)
