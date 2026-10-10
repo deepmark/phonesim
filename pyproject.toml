@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "phonesim"
-version = "0.1.0"
+version = "0.2.0"
 description = "Provider-free phone-call audio-degradation simulator with real telephony codecs"
 readme = "README.md"
 requires-python = ">=3.10"
