@@ -26,6 +26,8 @@ parameters correctly even when an upstream :class:`ResampleStage` changed the ra
 from __future__ import annotations
 
 import dataclasses
+import sys
+import warnings
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -227,6 +229,41 @@ def resolve_range(value: Union[float, int, tuple, list]) -> tuple[float, float]:
             raise ValueError(f"Range must have 2 elements, got {value!r}")
         return float(value[0]), float(value[1])
     return float(value), float(value)
+
+
+def _library_frame(frame) -> bool:
+    """A frame of phonesim's library code, or of torch's ``Module.__call__``
+    between two of them. The CLI counts as a caller."""
+    name = frame.f_globals.get("__name__", "")
+    if name == "phonesim.cli":
+        return False
+    return name == "phonesim" or name.startswith("phonesim.") or name == "torch.nn.modules.module"
+
+
+def warn_at_caller(message: str, category: type = FutureWarning) -> None:
+    """``warnings.warn`` attributed to the innermost frame outside phonesim, so
+    the warning names the caller's line however deep in phonesim it is raised."""
+    frame, level = sys._getframe(1), 1
+    while frame is not None and _library_frame(frame):
+        frame, level = frame.f_back, level + 1
+    warnings.warn(message, category, stacklevel=level + 1)
+
+
+def resolve_output_rate(input_sr: int, output_sr: Optional[int], setting: str) -> int:
+    """The output rate of a pipeline from ``input_sr``; ``output_sr`` is ``None`` when unset.
+
+    An unset output rate is 24000 Hz. When the input rate differs this warns
+    (``FutureWarning``, naming the caller's ``setting``, at the caller's line):
+    from 0.3.0 an unset output rate is the input rate.
+    """
+    if output_sr is not None:
+        return int(output_sr)
+    if int(input_sr) != 24000:
+        warn_at_caller(
+            f"{setting} not set: the output is resampled to 24000 Hz, not kept at the {int(input_sr)} Hz "
+            f"input rate; from 0.3.0 it defaults to the input rate. Set {setting} to choose"
+        )
+    return 24000
 
 
 # ----------------------------------------------------------------------------

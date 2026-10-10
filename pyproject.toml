@@ -48,3 +48,5 @@ packages = ["phonesim", "phonesim.stages", "phonesim.profiles"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# A test that relies on a deprecated rate default fails unless it expects the warning.
+filterwarnings = ['error:.*from 0\.3\.0:FutureWarning']

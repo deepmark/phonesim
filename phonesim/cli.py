@@ -75,17 +75,20 @@ def _build_sim(args):
 
     A configuration sets the pipeline's rates, so an explicit ``--sr`` or
     ``--out-sr`` must agree with it. Without a configuration ``--profile``
-    applies and the flags default to 24 kHz.
+    applies and the flags default to 24 kHz; ``--sr`` other than 24000 without
+    ``--out-sr`` warns, as from 0.3.0 ``--out-sr`` defaults to ``--sr``.
     """
     from phonesim import PhoneCallSimulator
     from phonesim.config import load_config
+    from phonesim.core import resolve_output_rate
 
     randomize = not args.deterministic
     try:
         if not args.config:
+            in_sr = _DEFAULT_SR if args.sr is None else args.sr
             return PhoneCallSimulator(
-                input_sample_rate=_DEFAULT_SR if args.sr is None else args.sr,
-                output_sample_rate=_DEFAULT_SR if args.out_sr is None else args.out_sr,
+                input_sample_rate=in_sr,
+                output_sample_rate=resolve_output_rate(in_sr, args.out_sr, "--out-sr"),
                 profile=args.profile or _DEFAULT_PROFILE,
                 randomize=randomize,
             )
@@ -169,7 +172,8 @@ def _add_pipeline_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("--sr", type=int, default=None,
                    help="input rate in Hz (default: the config's input_sr, else 24000)")
     p.add_argument("--out-sr", dest="out_sr", type=int, default=None,
-                   help="output rate in Hz (default: the config's output_sr, else 24000)")
+                   help="output rate in Hz (default: the config's output_sr, else 24000; "
+                        "from 0.3.0 the input rate)")
     p.add_argument("--seed", type=int, default=None,
                    help="seed for the random draws (batch: seed + file index)")
     p.add_argument("--deterministic", action="store_true",

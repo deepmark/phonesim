@@ -125,9 +125,12 @@ class ClockDriftStage(Stage):
         # and neighbours whatever the block boundaries.
         for s in range(0, new_len, _BLOCK):
             e = min(s + _BLOCK, new_len)
-            pos = torch.arange(s, e, device=x.device, dtype=x.dtype) / ratio
-            base = torch.floor(pos).long()
-            frac = (pos - base.to(x.dtype))
+            # Input positions in float64 on the CPU, which every device can
+            # take: accurate to about 1e-7 samples up to 10^9 samples.
+            pos = torch.arange(s, e, dtype=torch.float64) / ratio
+            base = torch.floor(pos)
+            frac = (pos - base).to(device=x.device, dtype=x.dtype)
+            base = base.long().to(x.device)
             arg = taps.unsqueeze(0) - frac.unsqueeze(1)                              # [block, 32]
             sinc = torch.where(arg == 0, torch.ones_like(arg), torch.sin(math.pi * arg) / (math.pi * arg))
             win = 0.5 * (1.0 + torch.cos(math.pi * arg / half))

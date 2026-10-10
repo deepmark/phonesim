@@ -56,30 +56,65 @@ def _sinc_filter(
 # Above this polyphase upsampling factor, the zero-stuffed intermediate signal
 # and sinc kernel become enormous (e.g. 44100->24000 has up=80, which stuffs a
 # 1 s clip to 3.5 M samples and needs a ~9.4k-tap kernel -> tens of GB). The
-# internal pipeline rates (8/16/24/32/48 kHz) all reduce to up <= 4, so they
-# always take the high-quality polyphase path; only exotic source rates such as
-# 44.1/22.05 kHz hit the bounded interpolation fallback below.
+# internal pipeline rates (8/16/24/32/48 kHz) all reduce to up <= 6 and take the
+# zero-stuffing path; ratios such as 44.1/22.05 kHz <-> 8/16/24 kHz take
+# _resample_bank, which applies the same low-pass without the zero-stuffing.
 _MAX_POLYPHASE_UP = 16
 
+# Most kernel taps _resample_bank builds for one conv1d. The ratios between
+# common rates fit in one; a larger bank (both reduced factors large, such as
+# 44101 -> 48000 Hz) is applied in blocks of phases.
+_MAX_BANK_TAPS = 1 << 20
 
-def _resample_interp(x: torch.Tensor, orig_sr: int, new_sr: int, numtaps: int = 257) -> torch.Tensor:
-    """Bounded-memory resampler: anti-alias FIR + linear interpolation.
 
-    Used as a fallback for awkward ratios (large polyphase ``up``) where the
-    polyphase path would allocate tens of GB. Lower fidelity than the sinc
-    polyphase resampler (correlation ~0.998 vs scipy ``resample_poly`` on a tone)
-    but O(T) in memory. Anti-aliases before downsampling
-    and removes imaging after upsampling.
+def _resample_bank(x: torch.Tensor, up: int, down: int, zeros: int = 32) -> torch.Tensor:
+    """Resample ``x`` ``[B, C, T]`` by ``up / down`` (in lowest terms) without zero-stuffing.
+
+    Output sample ``j`` lies at input position ``j * down / up``. It is the sum
+    of the inputs within ``zeros`` zero crossings of that position, each
+    weighted by the :func:`_sinc_filter` kernel (cutoff at the lower Nyquist
+    frequency, Hann window, same gain) at its exact distance: the output of the
+    zero-stuffing path, computed only at the output instants. The outputs with
+    the same ``j % up`` (one phase) share a kernel, and the kernels of a block
+    of phases are the output channels of one ``conv1d`` with stride ``down``.
+    Distances come from integers, so there is no delay and no drift at any
+    length. Returns ``max(1, round(T * up / down))`` samples.
     """
     b, c, t = x.shape
-    if new_sr < orig_sr:  # downsample: band-limit to the new Nyquist first
-        x = apply_fir(x, fir_lowpass(0.45 * new_sr, orig_sr, numtaps, device=x.device, dtype=x.dtype))
-    target = max(1, int(round(t * new_sr / orig_sr)))
-    y = F.interpolate(x.reshape(b * c, 1, t), size=target, mode="linear", align_corners=False)
-    y = y.reshape(b, c, target)
-    if new_sr > orig_sr:  # upsample: suppress imaging above the original Nyquist
-        y = apply_fir(y, fir_lowpass(0.45 * orig_sr, new_sr, numtaps, device=y.device, dtype=y.dtype))
-    return y
+    hi = max(up, down)
+    # The kernel reaches zeros * hi / up input samples either side of an
+    # output's position, so a phase reads from k inputs before the integer part
+    # of its position to k + 1 after it.
+    k = int(zeros * hi // up)
+    target = max(1, int(round(t * up / down)))
+    frames = -(-target // up)                       # conv1d steps of `down` inputs, one output per phase each
+    # cuDNN may run a float32 conv in TF32 (torch's default), which is far less
+    # precise than the CPU; it never does in float64, so CUDA float32 convolves
+    # in float64 and the result is cast back on assignment to y.
+    work = torch.float64 if x.is_cuda and x.dtype == torch.float32 else x.dtype
+    xp = F.pad(x.reshape(b * c, 1, t).to(work), (k, max(0, frames * down + k + 1 - t)))
+    y = x.new_empty((b * c, frames, up))
+    step = max(1, min(up, _MAX_BANK_TAPS // (down + 2 * k + 2)))   # a phase needs fewer than down + 2k + 2 taps
+    for p0 in range(0, up, step):
+        p = torch.arange(p0, min(up, p0 + step))   # the block's phases
+        o = p * down // up                          # integer parts of their positions
+        n = torch.arange(int(o[-1] - o[0]) + 2 * k + 2)
+        # up * (input index - output position) for each phase and tap, exact in
+        # int64; divided by hi it is the distance in zero crossings of the sinc.
+        arg = ((o[0] - k + n) * up - p[:, None] * down).double() / hi
+        win = torch.cos(arg * (math.pi / (2 * zeros))) ** 2
+        h = torch.where(arg.abs() <= zeros, torch.sinc(arg) * win, torch.zeros_like(arg)) * (up / hi)
+        o0, width = int(o[0]), (frames - 1) * down + n.numel()
+        hb = h.to(device=x.device, dtype=work).unsqueeze(1)
+        if b * c == 1 or step == up:
+            yb = F.conv1d(xp[..., o0:o0 + width], hb, stride=down)
+        else:
+            # Several blocks: one conv per row on a contiguous slice, so the
+            # rows are not copied out of the padded signal for every block.
+            yb = torch.cat([F.conv1d(xp[r:r + 1, :, o0:o0 + width], hb, stride=down)
+                            for r in range(b * c)])
+        y[:, :, p0:p0 + p.numel()] = yb.transpose(1, 2)
+    return y.reshape(b * c, frames * up)[:, :target].reshape(b, c, target)
 
 
 def resample(
@@ -93,17 +128,21 @@ def resample(
     Uses rational upsample-filter-downsample (polyphase) implemented with grouped
     conv1d. For non-integer ratios it reduces by the GCD first. When the reduced
     upsampling factor is very large (awkward ratios such as 44.1 kHz -> 24 kHz),
-    falls back to a bounded-memory anti-aliased linear interpolation to avoid a
-    multi-GB allocation.
+    :func:`_resample_bank` applies the same low-pass without building the
+    zero-stuffed signal. On both paths ``zeros`` is the kernel's half-width in
+    zero crossings of its sinc, whose cutoff is the lower of the two Nyquist
+    frequencies. An empty input gives an empty output.
     """
     if orig_sr == new_sr:
         return x
+    if x.shape[-1] == 0:
+        return x.new_zeros(x.shape)
     g = _gcd(int(orig_sr), int(new_sr))
     up = int(new_sr) // g
     down = int(orig_sr) // g
 
     if up > _MAX_POLYPHASE_UP:
-        return _resample_interp(x, int(orig_sr), int(new_sr))
+        return _resample_bank(x, up, down, zeros=zeros)
 
     b, c, t = x.shape
     kernel, pad = _sinc_filter(up, down, zeros=zeros, device=x.device, dtype=x.dtype)
@@ -130,6 +169,35 @@ def resample(
     elif out.shape[-1] < target:
         out = F.pad(out, (0, target - out.shape[-1]))
     return out.reshape(b, c, target)
+
+
+# Output samples per iteration of linear_resize; bounds its index tensors.
+_LINEAR_BLOCK = 1 << 20
+
+
+def linear_resize(x: torch.Tensor, size: int) -> torch.Tensor:
+    """Linearly interpolate ``x`` ``[B, C, T]`` to ``size`` samples.
+
+    The interpolation of ``F.interpolate(x, size, mode="linear",
+    align_corners=False)``: output ``j`` reads the input at position
+    ``(j + 1/2) * T / size - 1/2``, clamped at 0. That position is the fraction
+    ``((2j + 1) * T - size) / (2 * size)``, split into its integer part and
+    remainder in int64, so it is exact at any length; only the interpolation
+    weight is rounded, to the signal's dtype.
+    """
+    b, c, t = x.shape
+    xf = x.reshape(b * c, t)
+    y = xf.new_empty((b * c, size))
+    den = 2 * size
+    for s in range(0, size, _LINEAR_BLOCK):
+        j = torch.arange(s, min(s + _LINEAR_BLOCK, size))
+        num = ((2 * j + 1) * t - size).clamp_(min=0)
+        i0 = num // den                             # at most t - 1
+        w = ((num - i0 * den).double() / den).to(device=x.device, dtype=x.dtype)
+        i1 = (i0 + 1).clamp_(max=t - 1).to(x.device)
+        i0 = i0.to(x.device)
+        y[:, s:s + j.numel()] = xf[:, i0] * (1 - w) + xf[:, i1] * w
+    return y.reshape(b, c, size)
 
 
 # ----------------------------------------------------------------------------
